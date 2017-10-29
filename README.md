@@ -1,7 +1,7 @@
 # Path Planner Project
 
 The goal of the path planner project is to make the self driving vehicle drive on a 3 lane highway simulator.
-The self car should be able to complete a lap wihtout any incidents - collision, exceeding maximum velocity, maximum acceleration & maximum jerk. The car should be able make lane changes whenever it needs to. 
+The self car should be able to complete a lap wihtout any incidents - collision, exceeding maximum velocity, maximum acceleration & maximum jerk. The car should be able make lane changes whenever it needs to. The project walk through was very much helpful.
 
 To complete this project I focused on following two areas:
 * Behaviour planning
