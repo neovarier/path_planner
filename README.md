@@ -78,10 +78,10 @@ I have followed the steps discussed in the Project walk through:
  * Assuming the car goes with a constant velocity on the direct path between these 2 points, select equidistant points on this direct path.
  * Project these points directly on the spline and use the necessary points required for the new trajectory.
 
-Result:
+## Result:
 The car is able to complete 4.32 miles without any incidents. The car is able to make lane changes smoothely.
 
-Possible Improvements:
+## Possible Improvements:
  * As described in the Behaviour Planning lesson, cost functions can be defined. Total cost could be calculated based on different possible actions. Best action could be decided based which has the least total cost.
  * A mechanism to predict whether other cars would do a lane change or not would be useful information as we are relying on future locations of other cars.
  * A better mechanism can be devised to avoid the car from getting stuck in a lane
