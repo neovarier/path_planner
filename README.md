@@ -26,7 +26,7 @@ it has some unused waypoints from the trajectory of previous cycle. For each cyc
 
 For behaviour planning, the basic state machine that I have used:
  * Check if the front car on the same lane is at a safe distance from my car (State 1).
- * If there front car is not close, then keep same lane and accelerate (State 2).
+ * If the front car is not close, then keep the same lane and accelerate (State 2).
  * If the front car is not at a safe distance, then check if lane can be changed (State 3).
  * If lane can be changed then execute the lane change at the same velocity (State 3).
  * If the lane change is not possible then decelerate (State 4).
