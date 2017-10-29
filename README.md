@@ -79,7 +79,7 @@ I have followed the steps discussed in the Project walk through:
  * Project these points directly on the spline and use the necessary points required for the new trajectory.
 
 ## Result:
-The car is able to complete 4.32 miles without any incidents. The car is able to make lane changes smoothely.
+The car is able to complete 4.32 miles without any incidents. The car is able to make lane changes smoothely. A recorded video of a lap is also attached - video.mp4
 
 ## Possible Improvements:
  * As described in the Behaviour Planning lesson, cost functions can be defined. Total cost could be calculated based on different possible actions. Best action could be decided based which has the least total cost.
