@@ -44,7 +44,7 @@ Increment the velocity by maximum acceleration possible which is 0.448 mph which
 
 State 3:
 For lane change, check if any car's future location in the front or back is at a safe distance from the self car's future location in the adjacent lane.
-If their gap is lesser than the safe distance, then goto State 4
+If their gap is lesser than the safe distance, then goto State 4. 
 If their gap is more than the safe distance then check the relative velocity of the front car in the adjacent lane with respect to the front car in the current lane.
 If the relative velocity is positive then make the lane change and go to State 1. If relative is negative then go to State 4, unless the front car's gap in the adjacent is too high.
 In that case, still make the lane change and go to State 1. The idea here is that is the front car in the adjacent lane is slower than the front car in the same lane, there is no
@@ -54,6 +54,14 @@ In case if the current lane is the middle lane and both the adjacent lanes are s
 
 State 4:
 Decrement the velocity by 0.224 mph which is equivalent to -5m/s^2.
+
+Safe Distance for Front Car in the same lane       : 30 mts
+Safe Distance for Front Car in the adjacent lane   : 30 mts
+Safe Distance for Back Car in the adjacent lane    : 50 mts
+Max Distance for the Front Car in the adjacent lane: 100 mts
+
+Safe Distance for the Back Car in the adjacent lane is kept higher considering the fact that the Back Car velocity could be greater than the self car, which could lead to collision while lane change.
+
 
 ## Trajectory generation
 Taking the last 2 unused waypoints from the previous cycle trajectory as the base and 3 new predicted points beyond the last unused waypoint, I am using spline library to generate a smooth trajectory.
