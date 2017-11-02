@@ -33,37 +33,51 @@ For behaviour planning, the basic state machine that I have used:
  
 ### State 1:
 From sensor fusion feedback, the future location of the other cars in the same lane are predicted.
-If their distance is more than a safe distance from the self car's future location, then do a transition to State 2.
-If their distance is less than a safe distance from the self car's future location, then do a transition to State 3.
+The following steps are taken:
+To check if front cars in the same lane are too close to self car or not in the future
+* Calculate the future location FL1 of the other cars in the same lane assuming the current velocity does not change
+* Calculate the future location FL2 of the other cars in the same lane assuming the current velocity increases once in the beginning by applying maximum acceleration - 10 m/s^2
+* Calculate the future location FL3 of the other cars in the same lane assuming  the current velocity decreases once in the beginning by applying maximum deceleration - 10 m/s^2
+* If the all the three distances Fl1,Fl2 & Fl3 of all cars in front are more than the safe distance from the self car's future location, then do a transition to State 2.
+* If the any of the three distances Fl1,Fl2 & Fl3 of all cars in front are less than the safe distance from the self car's future location, then do a transition to State 3.
+To check if front cars in the adjacent are too close to do a lane change to the self lane or not in the future
+* Calculate the future location OFL of the other cars in the adjacent lanes assuming current velocity does not change.
+* If the distance OFL of all front cars in adjacent lane is  more than the safe distance from the self car's future location then do a transition to State 2.
+* If the distance OFL of any front car in adjacent lane is less than the safe distance from the self car's future location then check Frenet d coordinate of the car - If the d coordinate less than the 1 unit from the self lane boundary then do a transition to State 3. If not then do transition to State 2.
 
 ### State 2:
-Increment the velocity by 0.4032 mph which is equivalent to 9 m/s^2. This is within the bounds of maximum acceleration possible -> 10 m/s^2.
+Increment the velocity by 0.224 mph which is equivalent to 5 m/s^2. This is within the bounds of maximum acceleration possible -> 10 m/s^2. When accelerating use all the unused waypoint of the previous cycle.
 
 ### State 3:
-For lane change, check if any car's future location in the front or back is at a safe distance from the self car's future location in the adjacent lane.
-If their gap is lesser than the safe distance, then goto State 4. 
-If their gap is more than the safe distance then check the relative velocity of the front car in the adjacent lane with respect to the front car in the current lane.
-If the relative velocity is positive then make the lane change and go to State 1. If relative velocity is negative then go to State 4, unless the front car's gap in the adjacent lane is too high - In that case, still make the lane change and go to State 1. 
-The idea here is that if the front car in the adjacent lane is slower than the front car in the same lane, there is no
-benefit of making the lane change unless the gap is too high which would give an opportunity to make the lane change to the adjacent lane and then another lane change back to the current lane.
 
-In case if the current lane is the middle lane and both the adjacent lanes are safe for lane change, select the fastest lane.
-The fastest lane is decided by the speed of slowest vehicle ahead in either lanes. If the speed of slowest vehicle ahead in one lane is more than that of the other, then choose the first lane.
+To lane change if there is safe gap in the adjacent lane
+* Calculate the future location FL1 of the other cars in the adjacent lane assuming the current velocity does not change
+* Calculate the future location FL2 of the other cars in the adjacent lane assuming the current velocity increases once in the beginning by applying maximum acceleration - 10 m/s^2
+* Calculate the future location FL3 of the other cars in the adjacent lane assuming  the current velocity decreases once in the beginning by applying maximum deceleration - 10 m/s^2
+* If the all the three distances Fl1,Fl2 & Fl3 of all front and back cars in the adjacent lane are more than the safe distance from the self car's future location, then a LANE CHANGE is possible.
+* If the any of the three distances Fl1,Fl2 & Fl3 of front and back cars in the adjacent lane are less than the safe distance from the self car's future location, then do a transition to State 4.
+* If LANE CHANGE is possible then check the relative velocity of closest front car in the adjacent lane w.r.t the front car in the same lane and check the gap of the closest front car in the adjacent lane w.r.t self car - If the relative velocity is positive OR the distance gap is greater than a maximum threshold then make the lane change and then goto State 1. If the relative velocity is negative AND the distance gap is lesser than a maximum threshold then go to State 4. The idea here is that if the front car in the adjacent lane is slower than the front car in the same lane, there is no benefit of making the lane change unless the gap is too high which would give an opportunity to make the lane change to the adjacent lane and then another lane change back to the current lane.
+* If the current lane is the middle lane and lane change to both the adjacent lanes is possible as per the above conditions, then check which lane is the fastest one. The fastest lane is decided by the speed of slowest vehicle ahead in either lanes. If the speed of slowest vehicle ahead in one lane is more than that of the other, then choose the first lane.
+
+To check if front cars in the adjacent lanes to the target lane are too close to do a lane change to the target lane or not in the future
+* Calculate the future location OFL of the other cars in the adjacent lanes to the target lane assuming current velocity does not change.
+* If the distance OFL of all front cars in adjacent lane to the target lane is  more than the safe distance from the self car's future location then LANE CHANGE is possible
+* If the distance OFL of any front car in adjacent lane to the target lane is less than the safe distance from the self car's future location then check Frenet d coordinate of the car - If the d coordinate less than the 1 unit from the target lane boundary then lane change is dangerous and do a transition to State 4. If not then LANE CHANGE is possible.
+
+When making the lane change use all the unused waypoint of the previous cycle.
 
 ### State 4:
-Decrement the velocity by 0.224 mph which is equivalent to -5m/s^2. This is within the bounds of maximum deceleration.
+Decrement the velocity by 0.224 mph which is equivalent to -5m/s^2. This is within the bounds of maximum deceleration. When decelerating use the first 10 unused waypoints from the previous cycle and flush the rest. This will make sure that the velocity decrement will take immediately in the future (0.2 seconds). This will rule out cases where front car is decelerating very fast.
 
 ### Safe Distance Parameters
 Safe Distance for Front Car in the same lane       : 30 mts.
 Safe Distance for Front Car in the adjacent lane   : 30 mts.
-Safe Distance for Back Car in the adjacent lane    : 50 mts.
+Safe Distance for Back Car in the adjacent lane    : 30 mts.
 Max Distance for the Front Car in the adjacent lane: 100 mts.
 
-Safe Distance for the Back Car in the adjacent lane is kept higher considering the fact that the Back Car velocity could be greater than the self car, which could lead to collision from behind while the seld can is doing the lane change.
-
-
 ## Trajectory generation
-Taking the last 2 unused waypoints from the previous cycle trajectory as the base and 3 new predicted points beyond the last unused waypoint, I am using spline library to generate a smooth trajectory.
+In case of deceleration, use only the first 10 unused waypoints from the previous cycle to generate the future trajectory. If accelerating or making lane change use all the unused waypoints from the previous cycle.
+Taking the last 2 waypoints from the set of usused waypoints to be used from the previous cycle trajectory as the base and 3 new predicted points beyond the last unused waypoint, I am using spline library to generate a smooth trajectory.
 The 3 new waypoints are predicted by using the Frenet coordinates of last unused waypoint and as per the global Frenet coordinates of the track:
 end_s + 30.
 end_s + 60.
@@ -83,8 +97,12 @@ The car is able to complete 4.32 miles without any incidents. The car is able to
 
 ## Possible Improvements:
  * As described in the Behaviour Planning lesson, cost functions can be defined. Total cost could be calculated based on different possible actions. Best action could be decided based which has the least total cost.
- * A mechanism to predict whether other cars would do a lane change or not would be useful information as we are relying on future locations of other cars.
- * A better mechanism can be devised to avoid the car from getting stuck in a lane
+ 
+ ## Review Comments Addressed 
+ From the previous review I have addressed the comments:
+ * Self Car was colliding the front car in the same lane when the front was decelerating. In the last submission, I was using all the unused waypoints from the previous cycle. Since there would be ususally 45-47 unused waypoints from the previous cycle. So the decelerated velocity was taking into effect only after the 45-47 waypoints (~ 1 second) for the next cycle. In some cases, this would be too late if the front car is decelerating quickly. In the current submission I am using the first 10 unused waypoints from the previous cycle and flushin out the rest. In this case the decelerated velocity will take into effect after 10 waypoints (0.2 sec) and the next 40 waypoints will use decelerated velocity. This should avoid the collision when the front car is decelerating.
 
+* Self Car is making a right lane change and the back car in the right lane is colliding from behind
+In the last submission, while making lane change I was assuming the future location of front and back cars in the adjacent lanes assuming that their velocity will not change. But if the car is accelerating from behind, then it may lead to collision. In the current submission, I am calculating the future locations of  front and back cars in the adjacent lanes assuming that it has 1) constant velocity 2) accelerates in the beginning once & 3) decelerated in the beginning once. By checking these distance against the safe distance it will taking into consideration the acceleration case of back car & deceleration case of front car as well in the adjacent lane. This should avoid collisions during lane change from back cars in case they are accelerating.
 
 
