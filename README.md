@@ -36,11 +36,9 @@ From sensor fusion feedback, the future location of the other cars in the same l
 The following steps are taken:
 To check if front cars in the same lane are too close to self car or not in the future
 * Calculate the future location FL1 of the other cars in the same lane assuming the current velocity does not change
-* Calculate the future location FL2 of the other cars in the same lane assuming the current velocity increases once in the beginning by applying maximum acceleration - 10 m/s^2
-* Calculate the future location FL3 of the other cars in the same lane assuming  the current velocity decreases once in the beginning by applying maximum deceleration - 10 m/s^2
-* If the all the three distances Fl1,Fl2 & Fl3 of all cars in front are more than the safe distance from the self car's future location, then do a transition to State 2.
-* If the any of the three distances Fl1,Fl2 & Fl3 of all cars in front are less than the safe distance from the self car's future location, then do a transition to State 3.
-To check if front cars in the adjacent are too close to do a lane change to the self lane or not in the future
+* If the distance Fl1 of all cars in front are more than the safe distance from the self car's future location, then do a transition to State 2.
+* If the distance Fl1 of all cars in front are less than the safe distance from the self car's future location, then do a transition to State 3.
+To check if front cars in the adjacent lane are too close to do a lane change to the self lane or not in the future
 * Calculate the future location OFL of the other cars in the adjacent lanes assuming current velocity does not change.
 * If the distance OFL of all front cars in adjacent lane is  more than the safe distance from the self car's future location then do a transition to State 2.
 * If the distance OFL of any front car in adjacent lane is less than the safe distance from the self car's future location then check Frenet d coordinate of the car - If the d coordinate less than the 1 unit from the self lane boundary then do a transition to State 3. If not then do transition to State 2.
@@ -59,7 +57,7 @@ To lane change if there is safe gap in the adjacent lane
 * If LANE CHANGE is possible then check the relative velocity of closest front car in the adjacent lane w.r.t the front car in the same lane and check the gap of the closest front car in the adjacent lane w.r.t self car - If the relative velocity is positive OR the distance gap is greater than a maximum threshold then make the lane change and then goto State 1. If the relative velocity is negative AND the distance gap is lesser than a maximum threshold then go to State 4. The idea here is that if the front car in the adjacent lane is slower than the front car in the same lane, there is no benefit of making the lane change unless the gap is too high which would give an opportunity to make the lane change to the adjacent lane and then another lane change back to the current lane.
 * If the current lane is the middle lane and lane change to both the adjacent lanes is possible as per the above conditions, then check which lane is the fastest one. The fastest lane is decided by the speed of slowest vehicle ahead in either lanes. If the speed of slowest vehicle ahead in one lane is more than that of the other, then choose the first lane.
 
-To check if front cars in the adjacent lanes to the target lane are too close to do a lane change to the target lane or not in the future
+To check if front cars in the adjacent lanes are too close to do a lane change to the target lane or not in the future
 * Calculate the future location OFL of the other cars in the adjacent lanes to the target lane assuming current velocity does not change.
 * If the distance OFL of all front cars in adjacent lane to the target lane is  more than the safe distance from the self car's future location then LANE CHANGE is possible
 * If the distance OFL of any front car in adjacent lane to the target lane is less than the safe distance from the self car's future location then check Frenet d coordinate of the car - If the d coordinate less than the 1 unit from the target lane boundary then lane change is dangerous and do a transition to State 4. If not then LANE CHANGE is possible.
@@ -104,5 +102,3 @@ The car is able to complete 4.32 miles without any incidents. The car is able to
 
 * Self Car is making a right lane change and the back car in the right lane is colliding from behind
 In the last submission, while making lane change I was assuming the future location of front and back cars in the adjacent lanes assuming that their velocity will not change. But if the car is accelerating from behind, then it may lead to collision. In the current submission, I am calculating the future locations of  front and back cars in the adjacent lanes assuming that it has 1) constant velocity 2) accelerates in the beginning once & 3) decelerated in the beginning once. By checking these distance against the safe distance it will taking into consideration the acceleration case of back car & deceleration case of front car as well in the adjacent lane. This should avoid collisions during lane change from back cars in case they are accelerating.
-
-
