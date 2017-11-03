@@ -37,8 +37,8 @@ The following steps are taken:
 A) To check if front cars in the same lane are too close to self car or not in the future
 * Calculate the future gap FL of the other cars in the same lane w.r.t self car assuming the current velocity does not change
 * Check if currently the car in the same lane is ahead of self car AND in the future self car is ahead of other car. This case will lead to collision. If this condition is satisfied then do a state transition to State 3. If not then transition to State 2 is possible. 
-* If the distance Fl of all cars in front are more than the safe distance gap, then do transition to State 2 is possible.
-* If the distance Fl of any cars in front is less than the safe distance gap, then do a transition to State 3.
+* If the distance FL of all cars in front are more than the safe distance gap, then do transition to State 2 is possible.
+* If the distance FL of any cars in front is less than the safe distance gap, then do a transition to State 3.
 B) To check if front cars in the adjacent lane are too close to do a lane change to the self lane or not in the future
 * Calculate the future location OFL of the other cars in the adjacent lanes assuming current velocity does not change.
 * If the distance OFL of all front cars in adjacent lane is  more than the safe distance from the self car's future location then transition to State 2 to possible.
@@ -55,8 +55,8 @@ A)To lane change if there is safe gap in the adjacent lane
 * Calculate the future gap w.r.t to self car - FL2 of the other cars in the adjacent lane assuming the current velocity increases once in the beginning by applying maximum acceleration - 10 m/s^2
 * Calculate the future gap w.r.t self car FL3 of the other cars in the adjacent lane assuming  the current velocity decreases once in the beginning by applying maximum deceleration - 10 m/s^2
 * Calculate the current gap w.r.t self car - FL4 of the other cars in the adjacent lanes
-* If the four distances Fl1,Fl2,Fl3 & FL4 of all front and back cars in the adjacent lane are more than the safe distance gap, then a LANE CHANGE is possible.
-* If any of the three distances Fl1,Fl2,Fl3 & FL4 of front and back cars in the adjacent lane are less than the safe distance gap, then do a transition to State 4.
+* If the four distances FL1,FL2,FL3 & FL4 of all front and back cars in the adjacent lane are more than the safe distance gap, then a LANE CHANGE is possible.
+* If any of the three distances FL1,FL2,FL3 & FL4 of front and back cars in the adjacent lane are less than the safe distance gap, then do a transition to State 4.
 * If LANE CHANGE is possible then check the relative velocity of closest front car in the adjacent lane w.r.t the front car in the same lane and check the gap of the closest front car in the adjacent lane w.r.t self car - If the relative velocity is positive OR the distance gap is greater than a maximum threshold then executing lane change and going to State 1 is possible. If the relative velocity is negative AND the distance gap is lesser than a maximum threshold then go to State 4. The idea here is that if the front car in the adjacent lane is slower than the front car in the same lane, there is no benefit of making the lane change unless the gap is too high which would give an opportunity to make the lane change to the adjacent lane and then another lane change back to the current lane.
 * If the current lane is the middle lane and excuting lane change to both the adjacent lanes is possible as per the above conditions, then check which lane is the fastest one. The fastest lane is decided by the speed of slowest vehicle ahead in either lanes. If the speed of slowest vehicle ahead in one lane is more than that of the other, then choose the first lane.
 
