@@ -44,6 +44,7 @@ B) To check if front cars in the adjacent lane are too close to do a lane change
 * Calculate the future location OFL of the other cars in the adjacent lanes assuming current velocity does not change.
 * If the distance OFL of all front cars in adjacent lane is  more than the safe distance from the self car's future location then transition to State 2 to possible.
 * If the distance OFL of any front car in adjacent lane is less than the safe distance from the self car's future location then check Frenet d coordinate of the car - If the d coordinate less than the 1 unit from the self lane boundary then do a transition to State 3. If not then transition to State 2 is possible.
+* Check if currently the car in the adjacent lane is ahead of self car AND in the future self car is ahead of other car. If yes then check Frenet d coordinate of the car - If the d coordinate less than the 1 unit from the self lane boundary then it could lead to a collision and  do a transition to State 3. If not then transition to State 2 is possible.
 
 If transition to State 2 is possible from both A) & B) then make a transition to State 2.
 ### State 2:
