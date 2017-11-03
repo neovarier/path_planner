@@ -39,6 +39,7 @@ A) To check if front cars in the same lane are too close to self car or not in t
 * Check if currently the car in the same lane is ahead of self car AND in the future self car is ahead of other car. This case will lead to collision. If this condition is satisfied then do a state transition to State 3. If not then transition to State 2 is possible. 
 * If the distance FL of all cars in front are more than the safe distance gap, then do transition to State 2 is possible.
 * If the distance FL of any cars in front is less than the safe distance gap, then do a transition to State 3.
+
 B) To check if front cars in the adjacent lane are too close to do a lane change to the self lane or not in the future
 * Calculate the future location OFL of the other cars in the adjacent lanes assuming current velocity does not change.
 * If the distance OFL of all front cars in adjacent lane is  more than the safe distance from the self car's future location then transition to State 2 to possible.
