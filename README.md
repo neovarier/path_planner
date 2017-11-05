@@ -31,14 +31,15 @@ For behaviour planning, the basic state machine that I have used:
  * If lane can be changed then execute the lane change at the same velocity (State 3).
  * If the lane change is not possible then decelerate (State 4).
  
+For cars in front on the same there are two safe distance gaps considered 1) hard safe distance 2) soft safe distance. Soft safe distance is higher than the hard safe distance. 
 ### State 1:
 From sensor fusion feedback, the future location of the other cars in the same lane are predicted.
 The following steps are taken:
 A) To check if front cars in the same lane are too close to self car or not in the future
 * Calculate the future gap FL of the other cars in the same lane w.r.t self car assuming the current velocity does not change
 * Check if currently the car in the same lane is ahead of self car AND in the future self car is ahead of other car. This case will lead to collision. If this condition is satisfied then do a state transition to State 3. If not then transition to State 2 is possible. 
-* If the distance FL of all cars in front are more than the safe distance gap, then do transition to State 2 is possible.
-* If the distance FL of any cars in front is less than the safe distance gap, then do a transition to State 3.
+* If the distance FL of all cars in front are more than the hard safe distance gap or soft safet distance, then do transition to State 2 is possible.
+* If the distance FL of any cars in front is less than the hard safe distance gap or soft safe distance, then do a transition to State 3.
 
 B) To check if front cars in the adjacent lane are too close to do a lane change to the self lane or not in the future
 * Calculate the future location OFL of the other cars in the adjacent lanes assuming current velocity does not change.
@@ -72,10 +73,11 @@ When executing lane change and going to State 1 is possible from both A) & B) th
 When making the lane change use all the unused waypoint of the previous cycle.
 
 ### State 4:
-Decrement the velocity by 0.224 mph which is equivalent to -5m/s^2. This is within the bounds of maximum deceleration. When decelerating use the first 10 unused waypoints from the previous cycle and flush the rest. This will make sure that the velocity decrement will take into effect quickly in the future (0.2 seconds). This will rule out cases where front car is decelerating very fast.
+If the front car gap is less than hard safe distance gap then decrement the velocity by 0.224 mph (which is equivalent to -5m/s^2) till the distance gap is greater than the hard safet distance. If the front car gap is less than soft safe distance gap and greater than hard safe distance gap then decrement the velocity by 0.224 mph (which is equivalent to -5m/s^2) till self car's velocity matches the front car velocity. This is within the bounds of maximum deceleration. When decelerating use the first 10 unused waypoints from the previous cycle and flush the rest. This will make sure that the velocity decrement will take into effect quickly in the future (0.2 seconds). This will rule out cases where front car is decelerating very fast.
 
 ### Safe Distance Parameters
-Safe Distance for Front Car in the same lane       : 40 mts.
+Hard Safe Distance for Front Car in the same lane  : 40 mts.
+Soft Safe Distance for Front Car in the same lane : 50 mts.
 Safe Distance for Front Car in the adjacent lane   : 40 mts.
 Safe Distance for Back Car in the adjacent lane    : 40 mts.
 Max Distance for the Front Car in the adjacent lane: 100 mts.
@@ -96,6 +98,9 @@ I have followed the steps discussed in the Project walk through:
  * After generating the spline, select 2 points on the spline - origin and a point 30 meters ahead in x-direction on the spline.
  * Assuming the car goes with a constant velocity on the direct path between these 2 points, select equidistant points on this direct path.
  * Project these points directly on the spline and use the necessary points required for the new trajectory.
+
+## Lane Change
+During lane change the decision making for behaviour planning (Lane change/ Decelerate/ Accelerate) is not taken. It only does the Trajectory generation. Once the lane change is complete then only  it starts the decision making for behaviour planning.
 
 ## Result:
 The car is able to complete 4.32 miles without any incidents. The car is able to make lane changes smoothely. A recorded video of a lap is also attached - video.mp4
