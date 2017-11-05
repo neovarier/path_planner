@@ -11,12 +11,14 @@
 #include "spline.h"
 
 #define MAX_SPEED_LIMIT              49.5
-#define DECELERATE                   0.224  //Equivalent to 5 m/s^2
-#define ACCELERATE                   0.4032 //Equivalent to 9 m/s^s
+#define DECELERATE                   0.224//0.4032  //Equivalent to 5 m/s^2
+#define ACCELERATE                   0.224//0.4032 //Equivalent to 9 m/s^s
+#define MAX_ACCELERATE_SPEED         0.448         //Equivalent to 10 m/s^2
 #define NEXT_LANE_FRONT_CAR_DIST_MAX 100
-#define FRONT_CAR_DIST_MAX           30
-#define NEXT_LANE_FRONT_CAR_DIST_MIN 30
-#define NEXT_LANE_BACK_CAR_DIST_MIN  50 //30
+#define FRONT_CAR_DIST_MIN           40 
+#define SOFT_FRONT_CAR_DIST_MIN      50
+#define NEXT_LANE_FRONT_CAR_DIST_MIN 40
+#define NEXT_LANE_FRONT_BACK_DIST_MIN 40 
 
 using namespace std;
 
@@ -249,278 +251,478 @@ int main() {
 
             /*The number of unused waypoints from the previous state*/
             int prev_path = previous_path_x.size();
+            double prev_car_s = car_s;
             
             if (prev_path > 0)
             {
               car_s = end_path_s;
             }
 
+            bool decelerate = false;
             bool too_close = false;
             double front_car_vel = 0.0;
+            double front_car_lane_vel = 0.0;
+            int front_car_cnt = 0;
+            double front_car_dist = 0.0;
+            bool maintain_speed = false;
+            bool path_plan = true;
 
-            /*Iterate through all theother  cars from the sensor fusion data*/
-            for (int i = 0; i < sensor_fusion.size(); i++)
+            if (((car_d > 7) && (car_d < 9)) || ((car_d > 3) && (car_d < 5)))
             {
-              /*Check if the car is in my lane*/
-              double carn_d = sensor_fusion[i][6];
-              if ((carn_d < (2+4*lane+2)) && (carn_d > (2+4*lane-2)))
-              {
-                double carn_vx = sensor_fusion[i][3];
-                double carn_vy = sensor_fusion[i][4];
-                double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
-                double carn_s = sensor_fusion[i][5];
-                
-                /*Predict the other car's future location*/
-                carn_s += ((double)prev_path*0.02*carn_vel);
-                /*Check if the front car is a safe distance away from self car in the future*/
-                if ((carn_s > car_s) && ((carn_s-car_s) < FRONT_CAR_DIST_MAX))
-                {
-                  front_car_vel = carn_vel;
-                  too_close = true;
-                }
-              
-              }
+              cout << "In the middle of lane change" << endl;
+              path_plan = false;
             }
 
-            /*If the front car is too close to self car, then check if lane change is possible*/
-            if (too_close)
+            /*During lane change the decision making for behaviour planning (Lane change/ Decelerate/ Accelerate) is not taken. 
+            It only does the Trajectory generation. Once the lane change is complete
+            then only it starts the decision making for behaviour planning.*/
+            if (path_plan)
             {
-              bool left_too_close;
-              bool right_too_close;
-              int left_car_cnt;
-              int right_car_cnt;
-              double left_close_car_dist;
-              double right_close_car_dist;
-              double left_close_car_vel;
-              double right_close_car_vel;
-              double min_left_car_vel;
-              double min_right_car_vel;
-              int lane_delta = 0;
-              int next_lane = lane;
-              if ((lane == 1) || (lane == 2))
-              {
-                left_too_close = false;
-                left_close_car_dist = 0.0;
-                left_close_car_vel = 0.0;
-                left_car_cnt = 0;
-                lane_delta = -1;
-                /*For left lane change*/
-                for (int i = 0; i < sensor_fusion.size(); i++)
-                {
-                  /*Is the front car in the left lane too close*/
-                  double carn_d = sensor_fusion[i][6];
-                  if ((carn_d < (2+4*(lane+lane_delta)+2)) && (carn_d > (2+4*(lane+lane_delta)-2)))
-                  {
-                    double carn_vx = sensor_fusion[i][3];
-                    double carn_vy = sensor_fusion[i][4];
-                    double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
-                    double carn_s = sensor_fusion[i][5];
+				/*Iterate through all theother  cars from the sensor fusion data*/
+				for (int i = 0; i < sensor_fusion.size(); i++)
+				{
+				  /*Check if the car is in my lane*/
+				  double carn_d = sensor_fusion[i][6];
+				  if ((carn_d < (2+4*lane+2)) && (carn_d > (2+4*lane-2)))
+				  {
+					double carn_vx = sensor_fusion[i][3];
+					double carn_vy = sensor_fusion[i][4];
+					double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
+					double carn_s = sensor_fusion[i][5];
+					double prev_carn_s = carn_s;
+					
+					/*Predict the other car's future location*/
+					carn_s += ((double)prev_path*0.02*carn_vel);
 
-                    /*Predict the other car's future location*/
-                    carn_s += ((double)prev_path*0.02*carn_vel);
-                    if (((carn_s > car_s) && ((carn_s-car_s) > NEXT_LANE_FRONT_CAR_DIST_MIN)))
-                    {
-                      /*Get the closest front car in the left lane and its velocity*/
-                      /*Get the slowest car velocity in the left lane*/
-                      if(left_car_cnt == 0)
-                      {
-                        min_left_car_vel = carn_vel;
-                        left_close_car_dist = carn_s-car_s;
-                        left_close_car_vel = carn_vel;
-                        left_car_cnt++;
-                      }
-                      else
-                      {
-                        if(carn_vel < min_left_car_vel)
-                          min_left_car_vel = carn_vel;
-                        if((carn_s-car_s) < left_close_car_dist)
-                        {
-                          left_close_car_dist = carn_s-car_s;
-                          left_close_car_vel = carn_vel;
-                        }
-                      }
-                    }
-             
-                     /*Check if the front and back cars in the left lane are at safe distance away from self car in the future*/       
-                    if (((carn_s > car_s) && ((carn_s-car_s) < NEXT_LANE_FRONT_CAR_DIST_MIN)) || ((carn_s < car_s) && ((car_s-carn_s) < NEXT_LANE_BACK_CAR_DIST_MIN)))
-                    {
-                      left_too_close = true;
-                    }
-                  }
-                }
-                
-                if(left_too_close == false)
-                  next_lane = lane+lane_delta;
-              }
-              
-              if ((lane == 0) || (lane == 1))
-              {
-                right_too_close = false;
-                right_close_car_dist = 0.0;
-                right_close_car_vel = 0.0;
-                right_car_cnt = 0;
-                lane_delta = 1;
-                /*For right lane change*/
-                for (int i = 0; i < sensor_fusion.size(); i++)
-                {
-                  /*Is the front car in the right lane too close*/
-                  double carn_d = sensor_fusion[i][6];
-                  if ((carn_d < (2+4*(lane+lane_delta)+2)) && (carn_d > (2+4*(lane+lane_delta)-2)))
-                  {
-                    double carn_vx = sensor_fusion[i][3];
-                    double carn_vy = sensor_fusion[i][4];
-                    double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
-                    double carn_s = sensor_fusion[i][5];
 
-                    /*Predict the other car's future location*/
-                    carn_s += ((double)prev_path*0.02*carn_vel);
-                    /*Get the closest front car in the right lane and its velocity*/
-                    /*Get the slowest car velocity in the right lane*/
-                    if (((carn_s > car_s) && ((carn_s-car_s) > NEXT_LANE_FRONT_CAR_DIST_MIN)))
-                    {
-                      if(right_car_cnt == 0)
-                      {
-                        min_right_car_vel = carn_vel;
-                        right_close_car_dist = carn_s-car_s;
-                        right_close_car_vel = carn_vel;
-                        right_car_cnt++;
-                      }
-                      else
-                      {
-                        if(carn_vel < min_right_car_vel)
-                          min_right_car_vel = carn_vel;
-                        if((carn_s-car_s) < right_close_car_dist)
-                        {
-                          right_close_car_dist = carn_s-car_s;
-                          right_close_car_vel = carn_vel;
-                        }
-                        
-                      }
-                    }
+					if (carn_s > car_s)
+					{
+						/*Get the closest front car in front int the same lane and its velocity*/
+						if(front_car_cnt == 0)
+						{
+						  front_car_dist = carn_s-car_s;
+						  front_car_lane_vel = carn_vel;
+						  front_car_cnt++;
+						}
+						else
+						{
+						  if((carn_s-car_s) < front_car_dist)
+						  {
+							front_car_dist = carn_s-car_s;
+							front_car_lane_vel = carn_vel;
+						  }
+						}
+					}
+					//cout << "Current lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+					/*Check if the front car is a safe distance away from self car in the future*/
+					/*Check if the current gap is positve and the future gap is negative*/
+					if (((carn_s > car_s) && ((carn_s-car_s) < FRONT_CAR_DIST_MIN)) || 
+					   ((prev_carn_s > prev_car_s) && (carn_s < car_s)) ||
+					   ((prev_carn_s > prev_car_s) && ((prev_carn_s - prev_car_s) < FRONT_CAR_DIST_MIN)))
+					{
+					  front_car_vel = carn_vel;
+					  //cout << " Front Car Vel " << carn_vel << " My vel " << car_speed << endl;
+					  too_close = true;
+					}
+				  
+				  }
+				  else
+				  {
+					/*To check if the other in adjacent lane is trying to do a lane change to the self car's lane*/
+					double carn_vx = sensor_fusion[i][3];
+					double carn_vy = sensor_fusion[i][4];
+					double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
+					double carn_s = sensor_fusion[i][5];
+					double prev_carn_s = carn_s; 
 
-                     /*Check if the front and back cars in the right lane are at safe distance away from self car in the future*/
-                    if (((carn_s > car_s) && ((carn_s-car_s) < NEXT_LANE_FRONT_CAR_DIST_MIN)) || ((carn_s < car_s) && ((car_s-carn_s) < NEXT_LANE_BACK_CAR_DIST_MIN)))
-                    {
-                      right_too_close = true;
-                    }
-                  }
-                }
-                if(right_too_close == false)
-                {
-                  if ((lane == 1) &&  (lane != next_lane))
-                    next_lane = 4; // This next_lane is set to 4 to identify that both lane changes are possible
-                  else
-                    next_lane = lane+lane_delta;
-                }
-              }
-              /*If next lane is same current lane then lane change is not possible*/
-              if(next_lane == lane)
-              {
-                cout << "1.Lane change not possible: Front " << too_close << " Left " << left_too_close << " Right " << right_too_close << endl;
-                ref_vel -= DECELERATE;
-              }
-              /*If lane change is possible for both left lane & right lane when ego car in the middle lane*/
-              else if (next_lane == 4)
-              {
-                /*If no cars ahead in the left lane then take left lane*/
-                if (left_car_cnt == 0)
-                {
-                  lane = 0;
-                }
-                /*If cars are present in both lanes then do the lane change to the fastest lane*/
-                else if (left_car_cnt > 0 && right_car_cnt > 0)
-                {
-                  bool left_lane_change = false;
-                  bool right_lane_change = false;
-                  
-                  /*If relative velocity of the left car in w.r.t front car is positive OR if left car is far off then left lane change is possible*/
-                  /*If the relative velocity is negative, then it is not beneficial to make left lane change unless the left front car is far off-This might give change for 2 lane changes*/
-                  if ((left_close_car_vel > front_car_vel) || (left_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
-                  {
-                    left_lane_change = true;
-                  }
+					/*Predict the other car's future location*/
+					carn_s += ((double)prev_path*0.02*carn_vel);
+					/*Check if the front car is a safe distance away from self car in the future*/
+					/*Check if the current gap is positve and the future gap is negative*/
+					if (((carn_s > car_s)&& ((carn_s-car_s) < FRONT_CAR_DIST_MIN)) || 
+						((prev_carn_s > prev_car_s) && (carn_s < car_s)) ||
+						((prev_carn_s > prev_car_s) && ((prev_carn_s - prev_car_s) < FRONT_CAR_DIST_MIN)))
+					{
+					  /*Check if the Frenet d coordinate is tending towards the self car's lane*/
+					  if ((lane == 0) && ((carn_d > 4) && (carn_d < 5)))
+					  {
+						too_close = true;
+						cout << "Other lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+					  }
+					  else if ((lane == 1) && (((carn_d > 3) && (carn_d < 4)) || ((carn_d > 8) && (carn_d < 9))))
+					  {
+						too_close = true;
+						cout << "Other lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+					  }
+					  else if ((lane == 2) && ((carn_d > 7) && (carn_d < 8)))
+					  {
+						too_close = true;
+						cout << "Other lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+					  }
+					}
+				  }
+				}
 
-                  /*If relative velocity of the right car in w.r.t front car is positive OR if left car is far off then right lane change is possible*/
-                  /*If the relative velocity is negative, then it is not beneficial to make right lane change unless the left front car is far off-This might give change for 2 lane changes*/
-                  if ((right_close_car_vel > front_car_vel) || (right_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
-                  {
-                    right_lane_change = true;
-                  }
-                  
-                  /*If both the lane changes are possible, then select the fastest lane based on the slowest car velocity in either*/
-                  /*This will ensure that we take the faster lane*/
-                  if ((left_lane_change == true) && (right_lane_change == true))
-                  {
-                    if (min_right_car_vel > min_left_car_vel)
-                      lane = 2;
-                    else
-                      lane = 0;
-                  }
-                  /*If only left lane change is possbile then make the left lane change*/
-                  else if ((left_lane_change == true) && (right_lane_change == false))
-                  {
-                    lane = 0;
-                  }
-                  /*If only right lane change is possbile then make the right lane change*/
-                  else if ((left_lane_change == false) && (right_lane_change == true))
-                  {
-                    lane = 2;
-                  }
-                  /*If no lane change is possible then decelerate*/
-                  else
-                  {
-                     cout << "2.Lane change not possible: Front " << too_close << " Left rel velocity " << (left_close_car_vel - front_car_vel) << " Left dist " << left_close_car_dist <<  " Rigth rel velocity " << (right_close_car_vel - front_car_vel) << " Right dist " << right_close_car_dist << endl;
-                    ref_vel -= DECELERATE;
-                  }
-                }
-                /*If no cars are present in the right lane and cars are present in the left lane, then do lane change to right lane*/
-                else if (left_car_cnt > 0 && right_car_cnt == 0)
-                {
-                    lane = 2;
-                }
-              }
-              /*If not in the middle lane, then next lane is not equal to current then make the lane change to the next lane*/
-              else
-              {
-                /*Left lane change is only possible*/
-                if (next_lane < next_lane)
-                {
-                  if (left_car_cnt == 0)
-                    lane = next_lane;
-                  /*If relative velocity of the left car in w.r.t front car is positive OR if left car is far off then left lane change is possible*/
-                  /*If the relative velocity is negative, then it is not beneficial to make left lane change unless the left front car is far off-This might give change for 2 lane changes*/
-                  else if ((left_close_car_vel > front_car_vel) || (left_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
-                    lane = next_lane;
-                  /*If left lane change is not possible then decelerate*/
-                  else
-                  {
-                    cout << "3.Lane change not possible: Front " << too_close << " Left rel velocity " << (left_close_car_vel - front_car_vel) << " Left dist " << left_close_car_dist << endl;
-                    ref_vel -= DECELERATE;
-                  }
-                }
-                /*Right lane change is only possible*/
-                else
-                {
-                  if (right_car_cnt == 0)
-                    lane = next_lane;
-                  /*If relative velocity of the right car in w.r.t front car is positive OR if left car is far off then right lane change is possible*/
-                  /*If the relative velocity is negative, then it is not beneficial to make right lane change unless the left front car is far off-This might give change for 2 lane changes*/
-                  else if ((right_close_car_vel > front_car_vel) || (right_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
-                    lane = next_lane;
-                  /*If right lane change is not possible then decelerate*/
-                  else
-                  {
-                    cout << "4.Lane change not possible: Front " << too_close << " Right rel velocity " << (right_close_car_vel - front_car_vel) << " Right dist " << right_close_car_dist << endl;
-                    ref_vel -= DECELERATE;
-                  }
-                }
-              }
-            }
-            /*If the front car is at safe distance or there is not front car then accelerate*/
-            else if (ref_vel < MAX_SPEED_LIMIT)
-            {
-              cout << "5.Accelerate " << endl;
-              ref_vel += ACCELERATE;
+				if(front_car_cnt)
+				{
+				  if (front_car_dist < SOFT_FRONT_CAR_DIST_MIN)
+				  {
+					maintain_speed = true;
+				  }
+				}
+
+				/*If the front car is too close to self car, then check if lane change is possible*/
+				if (too_close || maintain_speed)
+				{
+				  bool left_too_close;
+				  bool right_too_close;
+				  int left_car_cnt;
+				  int right_car_cnt;
+				  double left_close_car_dist;
+				  double right_close_car_dist;
+				  double left_close_car_vel;
+				  double right_close_car_vel;
+				  double min_left_car_vel;
+				  double min_right_car_vel;
+				  int lane_delta = 0;
+				  int next_lane = lane;
+				  if ((lane == 1) || (lane == 2))
+				  {
+					left_too_close = false;
+					left_close_car_dist = 0.0;
+					left_close_car_vel = 0.0;
+					left_car_cnt = 0;
+					lane_delta = -1;
+					/*For left lane change*/
+					for (int i = 0; i < sensor_fusion.size(); i++)
+					{
+					  /*Is the front car in the left lane too close*/
+					  double carn_d = sensor_fusion[i][6];
+					  if ((carn_d < (2+4*(lane+lane_delta)+2)) && (carn_d > (2+4*(lane+lane_delta)-2)))
+					  {
+						double carn_vx = sensor_fusion[i][3];
+						double carn_vy = sensor_fusion[i][4];
+						double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
+						double carn_s = sensor_fusion[i][5];
+						double carna_s = carn_s;
+						double carnd_s = carn_s;
+						double prev_carn_s = carn_s;
+
+						/*Predict the other car's future location assuming constant velocity*/
+						carn_s += ((double)prev_path*0.02*carn_vel);
+						/*Predict the other car's future location assuming acceleration is applied once in the beginnning*/
+						carna_s += ((double)(prev_path-1)*0.02*(carn_vel+MAX_ACCELERATE_SPEED))+(0.02*carn_vel);
+						/*Predict the other car's future location assuming deceleration is applied once in the beginnning*/
+						carnd_s += ((double)(prev_path-1)*0.02*(carn_vel-MAX_ACCELERATE_SPEED))+(0.02*carn_vel);
+						if (((carn_s > car_s) && ((carn_s-car_s) > NEXT_LANE_FRONT_CAR_DIST_MIN)))
+						{
+						  /*Get the closest front car in the left lane and its velocity*/
+						  /*Get the slowest car velocity in the left lane*/
+						  if(left_car_cnt == 0)
+						  {
+							min_left_car_vel = carn_vel;
+							left_close_car_dist = carn_s-car_s;
+							left_close_car_vel = carn_vel;
+							left_car_cnt++;
+						  }
+						  else
+						  {
+							if(carn_vel < min_left_car_vel)
+							  min_left_car_vel = carn_vel;
+							if((carn_s-car_s) < left_close_car_dist)
+							{
+							  left_close_car_dist = carn_s-car_s;
+							  left_close_car_vel = carn_vel;
+							}
+						  }
+						}
+						 /*Check if the front and back cars in the left lane are at safe distance away from self car in the future*/
+						 /*Check if the current gap is less than the safe distance*/
+						if (((abs(carn_s-car_s)) < NEXT_LANE_FRONT_BACK_DIST_MIN) ||
+							((abs(carna_s-car_s))< NEXT_LANE_FRONT_BACK_DIST_MIN) || 
+							((abs(carnd_s-car_s))< NEXT_LANE_FRONT_BACK_DIST_MIN) ||
+							((abs(prev_carn_s-prev_car_s)<NEXT_LANE_FRONT_BACK_DIST_MIN)))
+						{
+						  left_too_close = true;
+						}
+					  }
+					  else
+					  {
+						double carn_vx = sensor_fusion[i][3];
+						double carn_vy = sensor_fusion[i][4];
+						double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
+						double carn_s = sensor_fusion[i][5];
+						double prev_carn_s = carn_s;
+
+						/*Predict the other car's future location in the adjacent lane*/
+						carn_s += ((double)prev_path*0.02*carn_vel);
+						/*Check if the front car in the adjacent lane is a safe distance away from self car in the future*/
+						if ((carn_s > car_s)&& ((carn_s-car_s) < FRONT_CAR_DIST_MIN) ||
+						   ((prev_carn_s > prev_car_s) && ((prev_carn_s - prev_car_s) < NEXT_LANE_FRONT_CAR_DIST_MIN)))
+						{
+						  /*Check if the Frenet d coordinate is tending towards the self car's left adjacent lane (target lane)*/
+						  if (((lane+lane_delta) == 0) && ((carn_d > 4) && (carn_d < 5)))
+						  {
+							left_too_close = true;
+							cout << "Other lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+						  }
+						  else if (((lane+lane_delta) == 1) && (((carn_d > 3) && (carn_d < 4)) || ((carn_d > 8) && (carn_d < 9))))
+						  {
+							left_too_close = true;
+							cout << "Other lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+						  }
+						}
+					  }
+					}
+					
+					if(left_too_close == false)
+					  next_lane = lane+lane_delta;
+				  }
+				  
+				  if ((lane == 0) || (lane == 1))
+				  {
+					right_too_close = false;
+					right_close_car_dist = 0.0;
+					right_close_car_vel = 0.0;
+					right_car_cnt = 0;
+					lane_delta = 1;
+					/*For right lane change*/
+					for (int i = 0; i < sensor_fusion.size(); i++)
+					{
+					  /*Is the front car in the right lane too close*/
+					  double carn_d = sensor_fusion[i][6];
+					  if ((carn_d < (2+4*(lane+lane_delta)+2)) && (carn_d > (2+4*(lane+lane_delta)-2)))
+					  {
+						double carn_vx = sensor_fusion[i][3];
+						double carn_vy = sensor_fusion[i][4];
+						double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
+						double carn_s = sensor_fusion[i][5];
+						double carna_s = carn_s;
+						double carnd_s = carn_s;
+						double prev_carn_s = carn_s;
+
+						/*Predict the other car's future location assuming constant velocity*/
+						carn_s += ((double)prev_path*0.02*carn_vel);
+						/*Predict the other car's future location assuming acceleration is applied once in the beginnning*/
+						carna_s += ((double)(prev_path-1)*0.02*(carn_vel+MAX_ACCELERATE_SPEED))+(0.02*carn_vel);
+						/*Predict the other car's future location assuming deceleration is applied once in the beginnning*/
+						carnd_s += ((double)(prev_path-1)*0.02*(carn_vel-MAX_ACCELERATE_SPEED))+(0.02*carn_vel);
+
+						/*Get the closest front car in the right lane and its velocity*/
+						/*Get the slowest car velocity in the right lane*/
+						if (((carn_s > car_s) && ((carn_s-car_s) > NEXT_LANE_FRONT_CAR_DIST_MIN)))
+						{
+						  if(right_car_cnt == 0)
+						  {
+							min_right_car_vel = carn_vel;
+							right_close_car_dist = carn_s-car_s;
+							right_close_car_vel = carn_vel;
+							right_car_cnt++;
+						  }
+						  else
+						  {
+							if(carn_vel < min_right_car_vel)
+							  min_right_car_vel = carn_vel;
+							if((carn_s-car_s) < right_close_car_dist)
+							{
+							  right_close_car_dist = carn_s-car_s;
+							  right_close_car_vel = carn_vel;
+							}
+							
+						  }
+						}
+
+						 /*Check if the front and back cars in the right lane are at safe distance away from self car in the future*/
+						  /*Check if the current gap is less than the safe distance*/
+						if (((abs(carn_s-car_s)) < NEXT_LANE_FRONT_BACK_DIST_MIN) ||
+							((abs(carna_s-car_s))< NEXT_LANE_FRONT_BACK_DIST_MIN) ||
+							((abs(carnd_s-car_s))< NEXT_LANE_FRONT_BACK_DIST_MIN) || 
+							((abs(prev_carn_s-prev_car_s)<NEXT_LANE_FRONT_BACK_DIST_MIN)))
+						{
+						  right_too_close = true;
+						}
+					  }
+					  else
+					  {
+						double carn_vx = sensor_fusion[i][3];
+						double carn_vy = sensor_fusion[i][4];
+						double carn_vel = sqrt(carn_vx*carn_vx + carn_vy*carn_vy);
+						double carn_s = sensor_fusion[i][5];
+						double prev_carn_s = carn_s;
+
+						/*Predict the other car's future location in the adjacent lane*/
+						carn_s += ((double)prev_path*0.02*carn_vel);
+						/*Check if the front car in the adjacent lane is a safe distance away from self car in the future*/
+						if ((carn_s > car_s)&& ((carn_s-car_s) < FRONT_CAR_DIST_MIN) ||
+						   ((prev_carn_s > prev_car_s) && ((prev_carn_s - prev_car_s) < NEXT_LANE_FRONT_CAR_DIST_MIN)))
+						{
+						  /*Check if the Frenet d coordinate is tending towards the self car's left adjacent lane (target lane)*/
+						  if (((lane+lane_delta) == 1) && (((carn_d > 3) && (carn_d < 4)) || ((carn_d > 8) && (carn_d < 9))))
+						  {
+							right_too_close = true;
+							cout << "Other lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+						  }
+						  else if (((lane+lane_delta) == 2) && ((carn_d > 7) && (carn_d < 8)))
+						  {
+							right_too_close = true;
+							cout << "Other lane Car d " << sensor_fusion[i][6] << " My car " << car_d << endl;
+						  }
+						}
+					  }
+					}
+					if(right_too_close == false)
+					{
+					  if ((lane == 1) &&  (lane != next_lane))
+						next_lane = 4; // This next_lane is set to 4 to identify that both lane changes are possible
+					  else
+						next_lane = lane+lane_delta;
+					}
+				  }
+				  /*If next lane is same current lane then lane change is not possible*/
+				  if(next_lane == lane)
+				  {
+					cout << "1.Lane change not possible: Front " << too_close << " Left " << left_too_close << " Right " << right_too_close << endl;
+					//ref_vel -= DECELERATE;
+					decelerate = true;
+					/*In case pf deceleration, then use only the first 10 unused waypoints from the previous cycle*/
+					/*The decelerated velocity will take into effect quickly in 0.2 sec*/
+					//prev_path = 10;
+				  }
+				  /*If lane change is possible for both left lane & right lane when ego car in the middle lane*/
+				  else if (next_lane == 4)
+				  {
+					/*If no cars ahead in the left lane then take left lane*/
+					if (left_car_cnt == 0)
+					{
+					  lane = 0;
+					}
+					/*If cars are present in both lanes then do the lane change to the fastest lane*/
+					else if (left_car_cnt > 0 && right_car_cnt > 0)
+					{
+					  bool left_lane_change = false;
+					  bool right_lane_change = false;
+					  
+					  /*If relative velocity of the left car in w.r.t front car is positive OR if left car is far off then left lane change is possible*/
+					  /*If the relative velocity is negative, then it is not beneficial to make left lane change unless the left front car is far off-This might give change for 2 lane changes*/
+					  if ((left_close_car_vel > front_car_vel) || (left_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
+					  {
+						left_lane_change = true;
+					  }
+
+					  /*If relative velocity of the right car in w.r.t front car is positive OR if left car is far off then right lane change is possible*/
+					  /*If the relative velocity is negative, then it is not beneficial to make right lane change unless the left front car is far off-This might give change for 2 lane changes*/
+					  if ((right_close_car_vel > front_car_vel) || (right_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
+					  {
+						right_lane_change = true;
+					  }
+					  
+					  /*If both the lane changes are possible, then select the fastest lane based on the slowest car velocity in either*/
+					  /*This will ensure that we take the faster lane*/
+					  if ((left_lane_change == true) && (right_lane_change == true))
+					  {
+						if (min_right_car_vel > min_left_car_vel)
+						  lane = 2;
+						else
+						  lane = 0;
+					  }
+					  /*If only left lane change is possbile then make the left lane change*/
+					  else if ((left_lane_change == true) && (right_lane_change == false))
+					  {
+						lane = 0;
+					  }
+					  /*If only right lane change is possbile then make the right lane change*/
+					  else if ((left_lane_change == false) && (right_lane_change == true))
+					  {
+						lane = 2;
+					  }
+					  /*If no lane change is possible then decelerate*/
+					  else
+					  {
+						 cout << "2.Lane change not possible: Front " << too_close << " Left rel velocity " << (left_close_car_vel - front_car_vel) << " Left dist " << left_close_car_dist <<  " Rigth rel velocity " << (right_close_car_vel - front_car_vel) << " Right dist " << right_close_car_dist << endl;
+						//ref_vel -= DECELERATE;
+						decelerate = true;
+						/*In case pf deceleration, then use only the first 10 unused waypoints from the previous cycle*/
+						/*The decelerated velocity will take into effect quickly in 0.2 sec*/
+						//prev_path = 10;
+					  }
+					}
+					/*If no cars are present in the right lane and cars are present in the left lane, then do lane change to right lane*/
+					else if (left_car_cnt > 0 && right_car_cnt == 0)
+					{
+						lane = 2;
+					}
+				  }
+				  /*If not in the middle lane, then next lane is not equal to current then make the lane change to the next lane*/
+				  else
+				  {
+					/*Left lane change is only possible*/
+					if (next_lane < lane)
+					{
+					  if (left_car_cnt == 0)
+						lane = next_lane;
+					  /*If relative velocity of the left car in w.r.t front car is positive OR if left car is far off then left lane change is possible*/
+					  /*If the relative velocity is negative, then it is not beneficial to make left lane change unless the left front car is far off-This might give change for 2 lane changes*/
+					  else if ((left_close_car_vel > front_car_vel) || (left_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
+						lane = next_lane;
+					  /*If left lane change is not possible then decelerate*/
+					  else
+					  {
+						cout << "3.Lane change not possible: Front " << too_close << " Left rel velocity " << (left_close_car_vel - front_car_vel) << " Left dist " << left_close_car_dist << endl;
+						//ref_vel -= DECELERATE;
+						decelerate = true;
+						/*In case pf deceleration, then use only the first 10 unused waypoints from the previous cycle*/
+						/*The decelerated velocity will take into effect quickly in 0.2 sec*/
+						//prev_path = 10;
+					  }
+					}
+					/*Right lane change is only possible*/
+					else
+					{
+					  if (right_car_cnt == 0)
+						lane = next_lane;
+					  /*If relative velocity of the right car in w.r.t front car is positive OR if left car is far off then right lane change is possible*/
+					  /*If the relative velocity is negative, then it is not beneficial to make right lane change unless the left front car is far off-This might give change for 2 lane changes*/
+					  else if ((right_close_car_vel > front_car_vel) || (right_close_car_dist > NEXT_LANE_FRONT_CAR_DIST_MAX))
+						lane = next_lane;
+					  /*If right lane change is not possible then decelerate*/
+					  else
+					  {
+						cout << "4.Lane change not possible: Front " << too_close << " Right rel velocity " << (right_close_car_vel - front_car_vel) << " Right dist " << right_close_car_dist << endl;
+						//ref_vel -= DECELERATE;
+						decelerate = true;
+						/*In case pf deceleration, then use only the first 10 unused waypoints from the previous cycle*/
+						/*The decelerated velocity will take into effect quickly in 0.2 sec*/
+						//prev_path = 10;
+					  }
+					}
+				  }
+				  if (decelerate == true)
+				  {
+                    /*If gap is less than hard safe distance gap
+                    then decrement the speed as much possible*/
+					if (too_close)
+					{
+					  ref_vel -= DECELERATE;
+					  prev_path = 10;
+					}
+                    /*If the gap is less than the sof safet distance gap
+                    then decrement the speed till the front car velocity is matched*/
+					else if (maintain_speed)
+					{
+					  if (ref_vel > front_car_lane_vel)
+					  {
+						ref_vel -= DECELERATE;
+						prev_path = 10;
+					  }
+					}
+				  }
+				}
+				/*If the front car is at safe distance or there is not front car then accelerate*/
+				else if (ref_vel < MAX_SPEED_LIMIT)
+				{
+				  cout << "5.Accelerate " << endl;
+				  ref_vel += ACCELERATE;
+				}
             }
 
             /*Create a list of widely spaced points before using spline*/
@@ -567,6 +769,10 @@ int main() {
 
             }
 
+            /*Find the (s,d) coordinates as per the last waypoint from the unused set of waypoints to be used*/
+            vector<double> temp_s_d = getFrenet(ref_x, ref_y, ref_yaw, map_waypoints_x, map_waypoints_y);
+            
+            car_s = temp_s_d[0];
             /*In Frenet space, get 3 evenly spaces points (around 30m apart) w.r.t to current (s,d)*/
             vector<double> next_0_pts = getXY(car_s+30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
             vector<double> next_1_pts = getXY(car_s+60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
@@ -615,7 +821,8 @@ int main() {
             /*These points will be visited by the car every 20 ms.*/
             /*So the points should be chosen such that the reference velocity is maintained*/
             /*Select origin & the point 30 meteres ahead in x-coordinates on the spline*/
-            double target_x = 30.0;
+            double target_x;
+            target_x = 30.0;
             double target_y = s(target_x);
             double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
 
