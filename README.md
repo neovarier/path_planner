@@ -100,7 +100,7 @@ I have followed the steps discussed in the Project walk through:
  * Project these points directly on the spline and use the necessary points required for the new trajectory.
 
 ## Lane Change
-During lane change the decision making for behaviour planning (Lane change/ Decelerate/ Accelerate) is not taken. It only does the Trajectory generation. Once the lane change is complete then only  it starts the decision making for behaviour planning.
+During lane change the decision making for behaviour planning (Lane change/ Decelerate/ Accelerate) is not taken. It only does the Trajectory generation. Once the lane change is complete then only it starts the decision making for behaviour planning. This will help avoid cases where the car is in between lanes for a long time.
 
 ## Result:
 The car is able to complete 4.32 miles without any incidents. The car is able to make lane changes smoothely. A recorded video of a lap is also attached - video.mp4
